@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+:root {
+  --pigeon: #898b86;
+  --pink: #500711;
+  --lime: #61675c;
+
+  --ink: #11120f;
+  --cream: #f5f3ec;
+  --muted: #999e90;
+  --border: rgba(255, 255, 255, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--cream);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ---------- Scrollbar ---------- */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pigeon);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--lime);
+}
+
+/* ---------- Selection ---------- */
+
+::selection {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+/* ---------- 3D Card ---------- */
+
+.card-3d {
+  transform-style: preserve-3d;
+  transition:
+    transform 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.card-3d:hover {
+  transform:
+    perspective(1000px)
+    rotateX(2deg)
+    rotateY(-2deg)
+    translateY(-7px);
+  box-shadow:
+    0 25px 50px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Floating element ---------- */
+
+.float {
+  animation: float 5s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* ---------- Lime glow ---------- */
+
+.lime-glow {
+  box-shadow:
+    0 0 0 1px rgba(204, 248, 11, 0.2),
+    0 0 35px rgba(204, 248, 11, 0.12);
+}
+
+/* ---------- Soft glow ---------- */
+
+.pink-glow {
+  box-shadow:
+    0 0 0 1px rgba(249, 189, 197, 0.15),
+    0 0 35px rgba(249, 189, 197, 0.08);
+}
+
+/* ---------- Noise-like overlay ---------- */
+
+.grain {
+  position: relative;
+  overflow: hidden;
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+
+/* ---------- Button ---------- */
+
+.lime-button {
+  background: var(--lime);
+  color: var(--ink);
+  border: 2px solid var(--lime);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.lime-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(204, 248, 11, 0.2);
+}
+
+/* ---------- 3D perspective ---------- */
+
+.perspective {
+  perspective: 1200px;
+}
