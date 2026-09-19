@@ -3,11 +3,12 @@
 :root {
   --pigeon: #898b86;
   --pink: #500711;
-  --lime: #61675c;
+  --lime: #cac6c7;
+  --black:#060606;
 
   --ink: #11120f;
   --cream: #f5f3ec;
-  --muted: #999e90;
+  --muted: #ebf0de;
   --border: rgba(255, 255, 255, 0.14);
 }
 

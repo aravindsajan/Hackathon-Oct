@@ -670,22 +670,23 @@ export default function Home() {
         >
 
           {filteredClaims.map((claim) => (
-
             <article
-              key={claim.id}
-              className="
-                card-3d
-                group
-                rounded-[28px]
-                border
-                border-white/10
-                bg-[var(--pigeon)]
-                bg-opacity-[0.10]
-                p-6
-                backdrop-blur-xl
-              "
-            >
-
+  key={claim.id}
+  className="
+  card-3d
+  group
+  rounded-[28px]
+  border
+  border-[var(--lime)]/15
+  bg-[rgba(97,103,92,0.10)]
+  p-6
+  backdrop-blur-xl
+  transition-all
+  duration-300
+  hover:border-[var(--lime)]/35
+  hover:bg-[rgba(97,103,92,0.15)]
+"
+>
               {/* Risk + status */}
 
               <div className="flex items-start justify-between gap-3">

@@ -4,9 +4,32 @@ import { useState } from "react";
 import Link from "next/link";
 
 export default function AnalyzeClaim() {
+  // =========================
+  // CLAIM INPUTS
+  // =========================
+
+  const [title, setTitle] = useState("");
+  const [sourcePlatform, setSourcePlatform] = useState("");
+  const [link, setLink] = useState("");
   const [text, setText] = useState("");
+
+  // =========================
+  // AI RESULTS
+  // =========================
+
   const [aiCategory, setAiCategory] = useState("");
-  const [confidence, setConfidence] = useState(null);
+  const [categoryConfidence, setCategoryConfidence] = useState(null);
+
+  const [verification, setVerification] = useState("");
+  const [verificationConfidence, setVerificationConfidence] =
+    useState(null);
+
+  const [riskLevel, setRiskLevel] = useState("");
+  const [riskFlags, setRiskFlags] = useState([]);
+
+  // =========================
+  // STATES
+  // =========================
 
   const [analyzing, setAnalyzing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -21,6 +44,25 @@ export default function AnalyzeClaim() {
   // =========================
 
   async function handleAnalyze() {
+    console.log("ANALYZE BUTTON CLICKED");
+
+    // Validation
+
+    if (!title.trim()) {
+      setError("Please enter a title.");
+      return;
+    }
+
+    if (!sourcePlatform) {
+      setError("Please select the source platform.");
+      return;
+    }
+
+    if (!link.trim()) {
+      setError("Please enter the source link.");
+      return;
+    }
+
     if (!text.trim()) {
       setError("Please enter a claim before analyzing.");
       return;
@@ -29,33 +71,103 @@ export default function AnalyzeClaim() {
     setAnalyzing(true);
     setError("");
     setSubmitError("");
+
+    // Clear previous results
+
     setAiCategory("");
-    setConfidence(null);
+    setCategoryConfidence(null);
+
+    setVerification("");
+    setVerificationConfidence(null);
+
+    setRiskLevel("");
+    setRiskFlags([]);
 
     try {
+      console.log("Sending request to Python AI...");
+
       const response = await fetch(
         "http://127.0.0.1:3001/predict-category",
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
+
           body: JSON.stringify({
-            news: text,
+            title: title.trim(),
+            link: link.trim(),
+            news: text.trim(),
           }),
         }
       );
 
+      console.log("AI RESPONSE STATUS:", response.status);
+
       if (!response.ok) {
-        throw new Error("AI model prediction failed.");
+        throw new Error(
+          `AI model returned status ${response.status}`
+        );
       }
 
       const data = await response.json();
 
       console.log("AI MODEL RESULT:", data);
 
+      // =========================
+      // CATEGORY
+      // =========================
+
       setAiCategory(data.category);
-      setConfidence(data.confidence);
+
+      setCategoryConfidence(
+        data.confidence_cat
+      );
+
+      // =========================
+      // VERIFICATION
+      // =========================
+
+      setVerification(data.verification);
+
+      setVerificationConfidence(
+        data.confidence_ver
+      );
+
+      // =========================
+      // RISK FLAGS
+      // =========================
+
+      const flags = [];
+
+      if (data.sensational) {
+        flags.push("Sensational");
+      }
+
+      if (data.shouting) {
+        flags.push("Shouting");
+      }
+
+      if (data.source) {
+        flags.push("Unsourced");
+      }
+
+      setRiskFlags(flags);
+
+      // =========================
+      // RISK LEVEL
+      // =========================
+
+      let level = "LOW RISK";
+
+      if (data.risk) {
+        level = "HIGH RISK";
+      } else if (flags.length === 1) {
+        level = "MEDIUM RISK";
+      }
+
+      setRiskLevel(level);
 
     } catch (err) {
       console.error("AI MODEL ERROR:", err);
@@ -73,13 +185,30 @@ export default function AnalyzeClaim() {
   // =========================
 
   async function handleSubmitClaim() {
+    if (!title.trim()) {
+      setSubmitError("Please enter a title.");
+      return;
+    }
+
+    if (!sourcePlatform) {
+      setSubmitError("Please select the source platform.");
+      return;
+    }
+
+    if (!link.trim()) {
+      setSubmitError("Please enter the source link.");
+      return;
+    }
+
     if (!text.trim()) {
       setSubmitError("Please enter a claim.");
       return;
     }
 
     if (!aiCategory) {
-      setSubmitError("Please analyze the claim before submitting.");
+      setSubmitError(
+        "Please analyze the claim before submitting."
+      );
       return;
     }
 
@@ -89,13 +218,25 @@ export default function AnalyzeClaim() {
     try {
       const response = await fetch("/api/claims", {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify({
-          text: text,
+          title: title.trim(),
+          text: text.trim(),
+          sourcePlatform,
+          link: link.trim(),
+
           category: aiCategory,
-          aiConfidence: confidence,
+          categoryConfidence,
+
+          verification,
+          verificationConfidence,
+
+          riskLevel,
+          riskFlags,
         }),
       });
 
@@ -103,7 +244,8 @@ export default function AnalyzeClaim() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to submit claim."
+          data.message ||
+            "Failed to submit claim."
         );
       }
 
@@ -115,7 +257,8 @@ export default function AnalyzeClaim() {
       console.error("SUBMIT ERROR:", err);
 
       setSubmitError(
-        err.message || "Unable to submit the claim."
+        err.message ||
+          "Unable to submit the claim."
       );
     } finally {
       setSubmitting(false);
@@ -151,36 +294,45 @@ export default function AnalyzeClaim() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to delete claim."
+          data.message ||
+            "Failed to delete claim."
         );
       }
 
-      setSubmittedClaim(null);
-      setText("");
-      setAiCategory("");
-      setConfidence(null);
-      setError("");
-      setSubmitError("");
+      handleClear();
 
     } catch (err) {
       console.error("DELETE ERROR:", err);
 
       setSubmitError(
-        err.message || "Unable to delete the claim."
+        err.message ||
+          "Unable to delete the claim."
       );
     }
   }
 
   // =========================
-  // CLEAR / ANALYZE ANOTHER
+  // CLEAR
   // =========================
 
   function handleClear() {
+    setTitle("");
+    setSourcePlatform("");
+    setLink("");
     setText("");
+
     setAiCategory("");
-    setConfidence(null);
+    setCategoryConfidence(null);
+
+    setVerification("");
+    setVerificationConfidence(null);
+
+    setRiskLevel("");
+    setRiskFlags([]);
+
     setError("");
     setSubmitError("");
+
     setSubmittedClaim(null);
   }
 
@@ -202,7 +354,8 @@ export default function AnalyzeClaim() {
               href="/"
               className="text-xl font-black tracking-tight"
             >
-              Truth<span className="text-[var(--lime)]">
+              Truth
+              <span className="text-[var(--lime)]">
                 Lens
               </span>
             </Link>
@@ -229,7 +382,6 @@ export default function AnalyzeClaim() {
 
         </nav>
 
-
         {/* SUCCESS */}
 
         <section className="max-w-4xl mx-auto px-6 py-16">
@@ -246,15 +398,16 @@ export default function AnalyzeClaim() {
 
             <p className="mt-5 max-w-2xl text-[var(--muted)] leading-7">
               Your claim has been analyzed and added to the
-              public CivicLens feed.
+              public TruthLens feed.
             </p>
 
           </div>
 
-
           {/* CLAIM CARD */}
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-7 md:p-10">
+
+            {/* STATUS */}
 
             <div className="flex items-start justify-between gap-5">
 
@@ -276,6 +429,54 @@ export default function AnalyzeClaim() {
 
             </div>
 
+            {/* TITLE */}
+
+            <div className="mt-8">
+
+              <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                Title
+              </p>
+
+              <h2 className="mt-3 text-2xl md:text-3xl font-black">
+                {submittedClaim.title}
+              </h2>
+
+            </div>
+
+            {/* SOURCE */}
+
+            <div className="grid md:grid-cols-2 gap-6 mt-8">
+
+              <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
+
+                <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                  Source Platform
+                </p>
+
+                <h2 className="mt-3 text-xl font-black">
+                  {submittedClaim.sourcePlatform}
+                </h2>
+
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
+
+                <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                  Source Link
+                </p>
+
+                <a
+                  href={submittedClaim.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 block text-sm text-[var(--lime)] break-all hover:underline"
+                >
+                  {submittedClaim.link}
+                </a>
+
+              </div>
+
+            </div>
 
             {/* CLAIM */}
 
@@ -291,10 +492,11 @@ export default function AnalyzeClaim() {
 
             </div>
 
-
-            {/* AI RESULT */}
+            {/* AI RESULTS */}
 
             <div className="grid md:grid-cols-2 gap-6 mt-8">
+
+              {/* CATEGORY */}
 
               <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
 
@@ -306,30 +508,71 @@ export default function AnalyzeClaim() {
                   {submittedClaim.category}
                 </h2>
 
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Confidence:{" "}
+                  {submittedClaim.categoryConfidence != null
+                    ? `${(
+                        submittedClaim.categoryConfidence * 100
+                      ).toFixed(1)}%`
+                    : "--"}
+                </p>
+
               </div>
 
+              {/* VERIFICATION */}
 
               <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
 
                 <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
-                  Model Confidence
+                  AI Verification
                 </p>
 
                 <h2 className="mt-3 text-3xl font-black">
+                  {submittedClaim.verification}
+                </h2>
 
-                  {submittedClaim.aiConfidence !== undefined &&
-                  submittedClaim.aiConfidence !== null
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Confidence:{" "}
+                  {submittedClaim.verificationConfidence != null
                     ? `${(
-                        submittedClaim.aiConfidence * 100
-                      ).toFixed(2)}%`
+                        submittedClaim.verificationConfidence * 100
+                      ).toFixed(1)}%`
                     : "--"}
+                </p>
 
+              </div>
+
+              {/* RISK */}
+
+              <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
+
+                <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                  Risk Assessment
+                </p>
+
+                <h2 className="mt-3 text-3xl font-black">
+                  {submittedClaim.riskLevel}
                 </h2>
 
               </div>
 
-            </div>
+              {/* FLAGS */}
 
+              <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
+
+                <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                  Risk Flags
+                </p>
+
+                <p className="mt-3 text-lg font-bold">
+                  {submittedClaim.riskFlags?.length > 0
+                    ? submittedClaim.riskFlags.join(" · ")
+                    : "No risk flags detected"}
+                </p>
+
+              </div>
+
+            </div>
 
             {/* ACTIONS */}
 
@@ -351,7 +594,6 @@ export default function AnalyzeClaim() {
               >
                 View Public Feed →
               </Link>
-
 
               <button
                 type="button"
@@ -376,7 +618,6 @@ export default function AnalyzeClaim() {
 
             </div>
 
-
             {/* SUBMIT ERROR */}
 
             {submitError && (
@@ -392,7 +633,6 @@ export default function AnalyzeClaim() {
             )}
 
           </div>
-
 
           {/* ANALYZE ANOTHER */}
 
@@ -424,7 +664,6 @@ export default function AnalyzeClaim() {
     );
   }
 
-
   // =========================
   // MAIN ANALYZE PAGE
   // =========================
@@ -442,7 +681,8 @@ export default function AnalyzeClaim() {
             href="/"
             className="text-xl font-black tracking-tight"
           >
-            Truth<span className="text-[var(--lime)]">
+            Truth
+            <span className="text-[var(--lime)]">
               Lens
             </span>
           </Link>
@@ -469,7 +709,6 @@ export default function AnalyzeClaim() {
 
       </nav>
 
-
       {/* MAIN */}
 
       <section className="max-w-4xl mx-auto px-6 py-16">
@@ -488,37 +727,31 @@ export default function AnalyzeClaim() {
 
           <p className="mt-5 max-w-2xl text-[var(--muted)] leading-7">
             Enter a news claim or viral post to analyze its
-            category using the TruthLens trained AI model.
+            category, verification status, and risk signals
+            using the TruthLens trained AI models.
           </p>
 
         </div>
-
 
         {/* ANALYSIS CARD */}
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-7 md:p-10">
 
-          {/* CLAIM */}
+          {/* TITLE */}
 
           <label className="block text-sm font-bold mb-3">
-            Claim / News Text
+            Claim Title
           </label>
 
-          <textarea
-            value={text}
+          <input
+            type="text"
+            value={title}
             onChange={(e) => {
-
-              setText(e.target.value);
-
-              setAiCategory("");
-              setConfidence(null);
-
+              setTitle(e.target.value);
               setError("");
               setSubmitError("");
-
             }}
-            rows={9}
-            placeholder="Paste the viral claim or news text here..."
+            placeholder="Enter a short title for the claim..."
             className="
               w-full
               rounded-2xl
@@ -526,23 +759,165 @@ export default function AnalyzeClaim() {
               border-white/10
               bg-[var(--ink)]
               px-5
-              py-5
+              py-4
               text-[var(--cream)]
               placeholder:text-[var(--muted)]
               outline-none
-              resize-none
               focus:border-[var(--lime)]
               transition
             "
           />
 
+          {/* SOURCE PLATFORM */}
+
+          <div className="mt-6">
+
+            <label className="block text-sm font-bold mb-3">
+              Source Platform
+            </label>
+
+            <select
+              value={sourcePlatform}
+              onChange={(e) => {
+                setSourcePlatform(e.target.value);
+                setError("");
+                setSubmitError("");
+              }}
+              className="
+                w-full
+                rounded-2xl
+                border
+                border-white/10
+                bg-[var(--ink)]
+                px-5
+                py-4
+                text-[var(--cream)]
+                outline-none
+                focus:border-[var(--lime)]
+                transition
+              "
+            >
+              <option value="">
+                Select source platform
+              </option>
+
+              <option value="WhatsApp">
+                WhatsApp
+              </option>
+
+              <option value="Reddit">
+                Reddit
+              </option>
+
+              <option value="X">
+                X
+              </option>
+
+              <option value="Instagram">
+                Instagram
+              </option>
+
+              <option value="Other">
+                Other
+              </option>
+
+            </select>
+
+          </div>
+
+          {/* SOURCE LINK */}
+
+          <div className="mt-6">
+
+            <label className="block text-sm font-bold mb-3">
+              Source Link
+            </label>
+
+            <input
+              type="url"
+              value={link}
+              onChange={(e) => {
+                setLink(e.target.value);
+                setError("");
+                setSubmitError("");
+              }}
+              placeholder="https://example.com/source"
+              className="
+                w-full
+                rounded-2xl
+                border
+                border-white/10
+                bg-[var(--ink)]
+                px-5
+                py-4
+                text-[var(--cream)]
+                placeholder:text-[var(--muted)]
+                outline-none
+                focus:border-[var(--lime)]
+                transition
+              "
+            />
+
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Add the original source URL used for the claim.
+            </p>
+
+          </div>
+
+          {/* CLAIM TEXT */}
+
+          <div className="mt-6">
+
+            <label className="block text-sm font-bold mb-3">
+              Claim / News Text
+            </label>
+
+            <textarea
+              value={text}
+              onChange={(e) => {
+
+                setText(e.target.value);
+
+                setAiCategory("");
+                setCategoryConfidence(null);
+
+                setVerification("");
+                setVerificationConfidence(null);
+
+                setRiskLevel("");
+                setRiskFlags([]);
+
+                setError("");
+                setSubmitError("");
+
+              }}
+              rows={9}
+              placeholder="Paste the viral claim or news text here..."
+              className="
+                w-full
+                rounded-2xl
+                border
+                border-white/10
+                bg-[var(--ink)]
+                px-5
+                py-5
+                text-[var(--cream)]
+                placeholder:text-[var(--muted)]
+                outline-none
+                resize-none
+                focus:border-[var(--lime)]
+                transition
+              "
+            />
+
+          </div>
 
           {/* CHARACTER COUNT */}
 
           <div className="mt-2 flex justify-between text-xs text-[var(--muted)]">
 
             <span>
-              Your claim will be analyzed by the trained AI model.
+              Your claim will be analyzed by the trained AI models.
             </span>
 
             <span>
@@ -551,19 +926,18 @@ export default function AnalyzeClaim() {
 
           </div>
 
-
           {/* INFO */}
 
           <div className="mt-8 rounded-2xl border border-[var(--lime)]/20 bg-[var(--lime)]/5 p-5">
 
             <p className="text-sm leading-6 text-[var(--muted)]">
-              TruthLens analyzes the submitted text using its
-              trained TensorFlow classification model and
-              predicts the category of the claim.
+              TruthLens analyzes the submitted content using
+              trained TensorFlow models to predict the category
+              and verification status, while also detecting
+              potential risk signals.
             </p>
 
           </div>
-
 
           {/* ERROR */}
 
@@ -579,13 +953,12 @@ export default function AnalyzeClaim() {
 
           )}
 
-
           {/* ANALYZE BUTTON */}
 
           <button
             type="button"
             onClick={handleAnalyze}
-            disabled={analyzing || !text.trim()}
+            disabled={analyzing}
             className="
               lime-button
               mt-8
@@ -608,12 +981,13 @@ export default function AnalyzeClaim() {
 
           </button>
 
-
           {/* AI RESULT */}
 
           {aiCategory && (
 
             <div className="mt-8 rounded-3xl border border-[var(--lime)]/30 bg-[var(--lime)]/5 p-7">
+
+              {/* RESULT HEADER */}
 
               <div className="flex items-start justify-between gap-4">
 
@@ -625,7 +999,7 @@ export default function AnalyzeClaim() {
 
                   <p className="mt-2 text-sm text-[var(--muted)]">
                     Prediction generated by the TruthLens
-                    TensorFlow model.
+                    TensorFlow models.
                   </p>
 
                 </div>
@@ -635,7 +1009,6 @@ export default function AnalyzeClaim() {
                 </div>
 
               </div>
-
 
               {/* RESULT GRID */}
 
@@ -653,29 +1026,71 @@ export default function AnalyzeClaim() {
                     {aiCategory}
                   </h2>
 
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Confidence:{" "}
+                    {categoryConfidence !== null
+                      ? `${(
+                          categoryConfidence * 100
+                        ).toFixed(1)}%`
+                      : "--"}
+                  </p>
+
                 </div>
 
-
-                {/* CONFIDENCE */}
+                {/* VERIFICATION */}
 
                 <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
 
                   <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
-                    Model Confidence
+                    Verification
                   </p>
 
                   <h2 className="mt-3 text-3xl md:text-4xl font-black">
+                    {verification}
+                  </h2>
 
-                    {confidence !== null
-                      ? `${(confidence * 100).toFixed(2)}%`
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Confidence:{" "}
+                    {verificationConfidence !== null
+                      ? `${(
+                          verificationConfidence * 100
+                        ).toFixed(1)}%`
                       : "--"}
+                  </p>
 
+                </div>
+
+                {/* RISK */}
+
+                <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
+
+                  <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                    Risk Assessment
+                  </p>
+
+                  <h2 className="mt-3 text-3xl md:text-4xl font-black">
+                    {riskLevel}
                   </h2>
 
                 </div>
 
-              </div>
+                {/* FLAGS */}
 
+                <div className="rounded-2xl border border-white/10 bg-[var(--ink)] p-6">
+
+                  <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                    Risk Flags
+                  </p>
+
+                  <p className="mt-3 text-lg font-bold">
+                    {riskFlags.length > 0
+                      ? riskFlags.join(" · ")
+                      : "No risk flags detected"}
+                  </p>
+
+                </div>
+
+              </div>
 
               {/* SUBMIT CLAIM */}
 
@@ -705,7 +1120,6 @@ export default function AnalyzeClaim() {
 
               </button>
 
-
               {/* SUBMIT ERROR */}
 
               {submitError && (
@@ -719,7 +1133,6 @@ export default function AnalyzeClaim() {
                 </div>
 
               )}
-
 
               {/* ANALYZE AGAIN */}
 
